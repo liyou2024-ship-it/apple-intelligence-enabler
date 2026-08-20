@@ -28,11 +28,10 @@ if [ "$(uname)" != "Darwin" ]; then
   exit 1
 fi
 
-# 需要管理员权限
-if [ "$(id -u)" -ne 0 ]; then
-  echo "本工具需要管理员权限，正在通过 sudo 重新启动..."
-  exec sudo "$0" "$@"
-fi
+# 说明：本工具不在启动时整脚本提权。
+# 仅在真正需要管理员权限的步骤（写系统 plist / launchctl / 挂载系统卷 / 覆写 featureavailabilityctl）前按需调用 sudo。
+# runp: 已是 root 时直接执行，否则加 sudo（首次会提示输入密码，之后有缓存）
+runp() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi; }
 
 # 语言: zh / en
 LANG_CODE="zh"
@@ -66,9 +65,9 @@ load_strings() {
     S_APPLY_M1="Applying Method 1: US-model device code"
     S_APPLY_M2="Applying Method 2: Force-enable overrides"
     S_UNINSTALLING="Reverting Apple Intelligence modifications..."
-    S_CONFIRM="Please confirm whether Apple Intelligence is enabled:"
-    S_CONF_OK="1. Enabled successfully"
-    S_CONF_FAIL="2. Failed to enable"
+    S_VERIFYING="Auto-detecting whether Apple Intelligence is actually enabled..."
+    S_VERIFY_OK="Apple Intelligence detected as ENABLED (relevant feature flags are on). If it still doesn't show in System Settings, reboot or re-login and check again."
+    S_VERIFY_FAIL="Could not confirm Apple Intelligence is enabled. The current method may not apply to your macOS version, or prerequisites (Apple Silicon / English language / non-China Apple Account) may still be unmet. Try Method 2 or open an issue on the repo."
     S_END="Script finished. If you have any issues, please submit an issue at:"
     S_RISK="This operation carries some risk. Are you willing to accept it?"
     S_RISK_YES="Yes - I accept the risk and continue"
@@ -110,9 +109,9 @@ load_strings() {
     S_APPLY_M1="正在应用 方法一：仿美版机型代码"
     S_APPLY_M2="正在应用 方法二：强制开启相关代码"
     S_UNINSTALLING="正在卸载 Apple 智能相关修改..."
-    S_CONFIRM="请确认是否开启 Apple 智能："
-    S_CONF_OK="1. 开启成功"
-    S_CONF_FAIL="2. 开启失败"
+    S_VERIFYING="正在自动检测 Apple 智能是否已真正启用..."
+    S_VERIFY_OK="检测到 Apple 智能已启用（相关特性标志已开启）。如系统设置中仍未出现，请重启或重新登录后再确认。"
+    S_VERIFY_FAIL="未能确认 Apple 智能已启用。可能当前方法不适用于您的系统版本，或仍需满足 Apple 芯片 / 英文语言 / 外区账户等条件。可尝试方法二或到仓库提交 issue。"
     S_END="脚本运行结束。若您在使用过程中有任何问题，请登录以下 Github 仓库提交 issue："
     S_RISK="操作有一定风险，你是否愿意承担风险？"
     S_RISK_YES="是 (Yes) - 我愿意承担风险并继续"
@@ -211,14 +210,14 @@ find_fac() {
 
 # ---------- 方法核心 ----------
 apply_common() {
-  # 仿美版机型 / 区域与语言
-  /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
-  /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
-  /bin/launchctl setenv OS_ELIGIBILITY_FORCE_OPT_IN 1
-  /usr/bin/defaults write /Library/Preferences/com.apple.assistant.plist "Assistant Environment" -string "Production" 2>/dev/null
-  /usr/bin/killall -9 assistant_service 2>/dev/null
-  /usr/bin/killall -9 imagent 2>/dev/null
-  /usr/bin/killall -9 searchd 2>/dev/null
+  # 仿美版机型 / 区域与语言（以下均为需管理员权限的操作，按需 sudo）
+  runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
+  runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
+  runp /bin/launchctl setenv OS_ELIGIBILITY_FORCE_OPT_IN 1
+  runp /usr/bin/defaults write /Library/Preferences/com.apple.assistant.plist "Assistant Environment" -string "Production" 2>/dev/null
+  runp /usr/bin/killall -9 assistant_service 2>/dev/null
+  runp /usr/bin/killall -9 imagent 2>/dev/null
+  runp /usr/bin/killall -9 searchd 2>/dev/null
 }
 
 enable_method1() {
@@ -229,11 +228,11 @@ enable_method1() {
 enable_method2() {
   echo "$S_APPLY_M2"
   # 需要 SIP 关闭 + 挂载系统卷为可写
-  /sbin/mount -uw / 2>/dev/null
+  runp /sbin/mount -uw / 2>/dev/null
   local fac; fac=$(find_fac)
   if [ -n "$fac" ]; then
-    "$fac" --macos Override -s '{"Siri.Suggestions": {"Status": "Beta"}}' 2>/dev/null
-    "$fac" --macos Override -s '{"Siri.GenuineSiri-intelligence": {"Status": "Beta"}}' 2>/dev/null
+    runp "$fac" --macos Override -s '{"Siri.Suggestions": {"Status": "Beta"}}' 2>/dev/null
+    runp "$fac" --macos Override -s '{"Siri.GenuineSiri-intelligence": {"Status": "Beta"}}' 2>/dev/null
   else
     echo "  (featureavailabilityctl 不可用，已跳过强制覆写)"
   fi
@@ -242,16 +241,16 @@ enable_method2() {
 
 uninstall_intelligence() {
   echo "$S_UNINSTALLING"
-  /usr/bin/defaults delete /Library/Preferences/.GlobalPreferences.plist CountryCode 2>/dev/null
-  /usr/bin/defaults delete /Library/Preferences/com.apple.assistant.plist "Assistant Environment" 2>/dev/null
-  /bin/launchctl unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
+  runp /usr/bin/defaults delete /Library/Preferences/.GlobalPreferences.plist CountryCode 2>/dev/null
+  runp /usr/bin/defaults delete /Library/Preferences/com.apple.assistant.plist "Assistant Environment" 2>/dev/null
+  runp /bin/launchctl unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
   local fac; fac=$(find_fac)
   if [ -n "$fac" ]; then
-    "$fac" --macos Override -d '{"Siri.Suggestions": {}}' 2>/dev/null
-    "$fac" --macos Override -d '{"Siri.GenuineSiri-intelligence": {}}' 2>/dev/null
+    runp "$fac" --macos Override -d '{"Siri.Suggestions": {}}' 2>/dev/null
+    runp "$fac" --macos Override -d '{"Siri.GenuineSiri-intelligence": {}}' 2>/dev/null
   fi
-  /usr/bin/killall -9 assistant_service 2>/dev/null
-  /usr/bin/killall -9 imagent 2>/dev/null
+  runp /usr/bin/killall -9 assistant_service 2>/dev/null
+  runp /usr/bin/killall -9 imagent 2>/dev/null
 }
 
 # ---------- 可选：锁定国家代码为美国 ----------
@@ -293,12 +292,55 @@ region_lock_step() {
   tput cnorm >/dev/tty 2>/dev/null
   if [ "$sel" -eq 0 ]; then
     echo "$S_REGION_APPLYING" >/dev/tty
-    /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
-    /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
+    runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
+    runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
     echo "$S_REGION_DONE" >/dev/tty
   else
     echo "$S_REGION_SKIP" >/dev/tty
   fi
+}
+
+# ---------- 自动检测 Apple 智能是否真正启用 ----------
+verify_intelligence() {
+  echo "$S_VERIFYING"
+  echo "------------------------------------------------"
+  local fac; fac=$(find_fac)
+  local on=0 sig=0
+
+  # 信号1: featureavailabilityctl 查询关键特性标志（只读，无需 sudo）
+  if [ -n "$fac" ]; then
+    for f in "Siri.GenuineSiri-intelligence" "Siri.Suggestions"; do
+      local out; out=$("$fac" --macos "$f" 2>/dev/null)
+      sig=$((sig+1))
+      if echo "$out" | grep -qiE "status[: ]+(\"|)(enabled|beta|on|eligible)"; then
+        on=$((on+1))
+        echo "  [OK] $f -> $(echo "$out" | grep -iE "status" | head -1 | tr -d ' \t')"
+      else
+        echo "  [..] $f -> 未检测到启用状态"
+      fi
+    done
+  else
+    echo "  [..] featureavailabilityctl 不可用，跳过特性标志检测"
+  fi
+
+  # 信号2: assistant plist 中的 Siri Genuine Siri 状态（只读）
+  local a; a=$(/usr/bin/defaults read com.apple.assistant "Siri Genuine Siri" 2>/dev/null)
+  sig=$((sig+1))
+  if echo "$a" | grep -qi "enabled"; then
+    on=$((on+1))
+    echo "  [OK] assistant 'Siri Genuine Siri' = $a"
+  else
+    echo "  [..] assistant 'Siri Genuine Siri' = ${a:-<空>}"
+  fi
+
+  echo "------------------------------------------------"
+  if [ "$on" -gt 0 ]; then
+    echo "$S_VERIFY_OK"
+  else
+    echo "$S_VERIFY_FAIL"
+  fi
+  echo "------------------------------------------------"
+  sleep 3
 }
 
 end_screen() {
@@ -363,9 +405,8 @@ main() {
   # 可选步骤：锁定国家代码为美国（含 iPhone 镜像配对重点提醒）
   region_lock_step
 
-  # 最终确认（选择任意项均结束）
-  local conf
-  conf=$(menu "$S_CONFIRM" "$S_CONF_OK" "$S_CONF_FAIL")
+  # 自动检测 Apple 智能是否真正启用（不再让用户手动二选一）
+  verify_intelligence
   end_screen
 }
 

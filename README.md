@@ -21,16 +21,16 @@
    - 好处：启用内置 ChatGPT、Apple News、国际版苹果地图（需配合科学上网）
    - 副作用：将无法使用高德版苹果地图
    - **【重点】iPhone 镜像提醒**：请务必在修改国家代码之前，先完成 iPhone 与 Mac 的配对；否则代码可能匹配不上导致无法连接。
-8. 最终确认（开启成功 / 开启失败，任选其一均结束），结束页给出 issue 提交地址
+8. **自动检测**：脚本会调用 `featureavailabilityctl` 与系统配置，自动判断 Apple 智能是否已真正启用并给出检测结果（不再让你手动二选一），随后进入结束页
 
 ## 使用方法
 
 ```bash
 chmod +x apple_intelligence_enabler.sh
-sudo ./apple_intelligence_enabler.sh
+./apple_intelligence_enabler.sh
 ```
 
-工具会自动索取管理员权限（非 root 时通过 `sudo` 重启自身）。
+无需以 sudo 启动脚本。脚本在启动时不会整脚本提权；仅在真正需要管理员权限的步骤（写入系统 plist、设置 launchctl 环境变量、挂载系统卷、覆写 FeatureAvailability）执行时，才会按需弹出 sudo 密码提示（首次输入后会有短时缓存）。
 
 ## 重要说明 / 免责声明
 
