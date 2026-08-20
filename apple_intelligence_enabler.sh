@@ -3,7 +3,7 @@
 # ============================================================================
 #  MacOS Apple 智能辅助开启工具 (Apple Intelligence Enabler)
 #  作者 / Author: liyou2024-ship-it
-#  适用系统 / Target: macOS（首个支持 Apple 智能的版本 ~ macOS Tahoe 26 Golden Gate Beta 5）
+#  适用系统 / Target: macOS（首个支持 Apple 智能的版本 ~ macOS 27 Golden Gate Beta 5）
 #  运行平台 / Platform: Apple Silicon Mac（需 macOS 15.1 Sequoia 及以上）
 # ============================================================================
 #
@@ -48,7 +48,7 @@ load_strings() {
     S_ACT_CLOSE="3. Close tool"
     S_CHOOSE_VERSION="Which version of Apple Intelligence do you want to enable?"
     S_VER_SIRI2="Siri 2.0 (macOS 15 Sequoia series)"
-    S_VER_SIRI3="Siri 3.0 (macOS 26 Tahoe series)"
+    S_VER_SIRI3="Siri 3.0 (macOS 27 Golden Gate series)"
     S_CHOOSE_METHOD="Please choose the enable method:"
     S_METHOD1="Method 1: US-model device code (works on all models)"
     S_METHOD2="Method 2: Force-enable code (try if Method 1 fails)"
@@ -82,7 +82,7 @@ load_strings() {
     S_ACT_CLOSE="3. 关闭工具"
     S_CHOOSE_VERSION="你要开启哪版的 Apple 智能？"
     S_VER_SIRI2="Siri 2.0（macOS 15 Sequoia 系列）"
-    S_VER_SIRI3="Siri 3.0（macOS 26 Tahoe 系列）"
+    S_VER_SIRI3="Siri 3.0（macOS 27 Golden Gate 系列）"
     S_CHOOSE_METHOD="请选择开启方式："
     S_METHOD1="方法一：仿美版机型代码（全版本机型都可）"
     S_METHOD2="方法二：强制开启相关代码（若方法一失败，可尝试方法二）"
@@ -281,7 +281,7 @@ main() {
 
   case "$ver" in
     0) echo ">> 目标版本 / Target: Siri 2.0 (macOS 15 Sequoia)" ;;
-    1) echo ">> 目标版本 / Target: Siri 3.0 (macOS 26 Tahoe)" ;;
+    1) echo ">> 目标版本 / Target: Siri 3.0 (macOS 27 Golden Gate)" ;;
   esac
 
   run_detection

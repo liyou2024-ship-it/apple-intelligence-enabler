@@ -1,7 +1,7 @@
 # Apple 智能辅助开启工具 (Apple Intelligence Enabler)
 
 > 作者 / Author: **liyou2024-ship-it**
-> 适用：macOS（首个支持 Apple 智能的版本 ~ macOS Tahoe 26 Golden Gate Beta 5）
+> 适用：macOS（首个支持 Apple 智能的版本 ~ macOS 27 Golden Gate Beta 5）
 > 平台：Apple Silicon Mac（需 macOS 15.1 Sequoia 及以上）
 
 一个纯命令行的 `.sh` 工具，用上下键菜单即可在你的 Apple Silicon Mac 上启用 / 卸载 Apple 智能（Apple Intelligence）。
@@ -11,7 +11,7 @@
 1. 选择语言（中文 / English，双语界面，↑/↓ 选择）
 2. 选择操作：① 开启 Apple 智能 ② 卸载 Apple 智能 ③ 关闭工具
    - **风险提示**：选择「开启」或「卸载」后，会先询问「操作有一定风险，你是否愿意承担风险？」（↑/↓ 选择「是 / 否」）。选「否」直接退出，选「是」才继续后续步骤；「关闭工具」不触发此提示。
-3. 选择版本：Siri 2.0（macOS 15 Sequoia）/ Siri 3.0（macOS 26 Tahoe）
+3. 选择版本：Siri 2.0（macOS 15 Sequoia）/ Siri 3.0（macOS 27 Golden Gate）
 4. 选择开启方式：
    - **方法一**：仿美版机型代码（区域设为 US、语言设为英文、写入 eligibility 环境变量）——全机型可用，无需关闭 SIP
    - **方法二**：强制开启相关代码（覆写 FeatureAvailability）——需关闭 SIP 并以可写方式挂载系统卷
