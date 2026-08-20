@@ -73,6 +73,16 @@ load_strings() {
     S_RISK="This operation carries some risk. Are you willing to accept it?"
     S_RISK_YES="Yes - I accept the risk and continue"
     S_RISK_NO="No - Exit the tool"
+    S_REGION_BENEFIT="Benefit: enables built-in ChatGPT, Apple News, and international Apple Maps (requires VPN)"
+    S_REGION_SIDE="Side effect: the Gaode (AMap) version of Apple Maps will no longer be available"
+    S_REGION_WARN_REQ="[Requirement] Before changing the country code, make sure your iPhone is already paired with this Mac."
+    S_REGION_WARN_REASON="[Reason] Changing the country code may cause the iPhone and Mac codes to mismatch, breaking the connection."
+    S_REGION_ASK="Do you want to lock the device country code to the United States?"
+    S_REGION_YES="Yes - Lock to US"
+    S_REGION_NO="No - Skip"
+    S_REGION_APPLYING="Locking country code to United States..."
+    S_REGION_DONE="Done: country code locked to United States."
+    S_REGION_SKIP="Skipped: country code not changed."
   else
     S_WELCOME="欢迎使用，请选择你的语言："
     S_MOVE_HINT="使用 ↑/↓ 选择，回车确认"
@@ -107,6 +117,16 @@ load_strings() {
     S_RISK="操作有一定风险，你是否愿意承担风险？"
     S_RISK_YES="是 (Yes) - 我愿意承担风险并继续"
     S_RISK_NO="否 (No) - 退出工具"
+    S_REGION_BENEFIT="好处：启用内置 ChatGPT、Apple News、国际版苹果地图（需配合科学上网）"
+    S_REGION_SIDE="副作用：将无法使用高德版苹果地图"
+    S_REGION_WARN_REQ="[要求] 请务必在修改国家代码之前，先完成 iPhone 与 Mac 的配对。"
+    S_REGION_WARN_REASON="[原因] 若修改国家代码，可能导致 iPhone 与 Mac 的代码匹配不上，从而无法连接。"
+    S_REGION_ASK="您是否要将设备的国家代码锁定为美国？"
+    S_REGION_YES="是 (Yes) - 锁定为美国"
+    S_REGION_NO="否 (No) - 跳过"
+    S_REGION_APPLYING="正在将国家代码锁定为美国..."
+    S_REGION_DONE="已完成：国家代码已锁定为美国。"
+    S_REGION_SKIP="已跳过：未修改国家代码。"
   fi
 }
 
@@ -234,6 +254,53 @@ uninstall_intelligence() {
   /usr/bin/killall -9 imagent 2>/dev/null
 }
 
+# ---------- 可选：锁定国家代码为美国 ----------
+region_lock_step() {
+  local opts=("$S_REGION_YES" "$S_REGION_NO")
+  local n=2 sel=0 k
+  tput civis >/dev/tty 2>/dev/null
+  while true; do
+    clear >/dev/tty
+    echo "$TOOL_TITLE" >/dev/tty
+    echo "------------------------------------------------" >/dev/tty
+    echo "$S_REGION_BENEFIT" >/dev/tty
+    echo "$S_REGION_SIDE" >/dev/tty
+    echo "" >/dev/tty
+    echo "  \033[1;41m 重点 / IMPORTANT \033[0m" >/dev/tty
+    echo "  \033[1m$S_REGION_WARN_REQ\033[0m" >/dev/tty
+    echo "  $S_REGION_WARN_REASON" >/dev/tty
+    echo "" >/dev/tty
+    echo "$S_REGION_ASK" >/dev/tty
+    echo "" >/dev/tty
+    local i
+    for i in "${!opts[@]}"; do
+      if [ "$i" -eq "$sel" ]; then
+        printf "  \033[1;36m>\033[0m %s\n" "${opts[$i]}" >/dev/tty
+      else
+        printf "    %s\n" "${opts[$i]}" >/dev/tty
+      fi
+    done
+    echo "" >/dev/tty
+    echo "  $S_MOVE_HINT" >/dev/tty
+    IFS= read -rsn1 k </dev/tty
+    if [ "$k" = $'\e' ]; then IFS= read -rsn2 k </dev/tty; fi
+    case "$k" in
+      '[A') sel=$(( (sel - 1 + n) % n )) ;;
+      '[B') sel=$(( (sel + 1) % n )) ;;
+      '') break ;;
+    esac
+  done
+  tput cnorm >/dev/tty 2>/dev/null
+  if [ "$sel" -eq 0 ]; then
+    echo "$S_REGION_APPLYING" >/dev/tty
+    /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
+    /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
+    echo "$S_REGION_DONE" >/dev/tty
+  else
+    echo "$S_REGION_SKIP" >/dev/tty
+  fi
+}
+
 end_screen() {
   clear >/dev/tty 2>/dev/null
   echo "$TOOL_TITLE"
@@ -292,6 +359,9 @@ main() {
   else
     enable_method2
   fi
+
+  # 可选步骤：锁定国家代码为美国（含 iPhone 镜像配对重点提醒）
+  region_lock_step
 
   # 最终确认（选择任意项均结束）
   local conf

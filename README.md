@@ -17,7 +17,11 @@
    - **方法二**：强制开启相关代码（覆写 FeatureAvailability）——需关闭 SIP 并以可写方式挂载系统卷
 5. 自动检测：Apple 芯片、SIP 是否关闭、系统语言是否为英文、Siri 语言与外区 Apple 账户
 6. 开启过程无需任何操作
-7. 最终确认（开启成功 / 开启失败，任选其一均结束），结束页给出 issue 提交地址
+7. 可选：将国家代码锁定为美国（↑/↓ 选择「是 / 否」）
+   - 好处：启用内置 ChatGPT、Apple News、国际版苹果地图（需配合科学上网）
+   - 副作用：将无法使用高德版苹果地图
+   - **【重点】iPhone 镜像提醒**：请务必在修改国家代码之前，先完成 iPhone 与 Mac 的配对；否则代码可能匹配不上导致无法连接。
+8. 最终确认（开启成功 / 开启失败，任选其一均结束），结束页给出 issue 提交地址
 
 ## 使用方法
 
@@ -34,6 +38,7 @@ sudo ./apple_intelligence_enabler.sh
 - **方法二需要关闭 SIP（系统完整性保护）** 并以可读写方式挂载系统卷，存在安全风险，请自行评估。
 - 关闭 SIP、修改系统文件可能违反 Apple 软件许可协议。
 - Apple 智能本身还需要：Apple Silicon 芯片、macOS 15.1+、Siri 语言与系统语言设为 English (US)、以及外区 Apple 账户。
+- 锁定国家代码为美国会启用内置 ChatGPT、Apple News、国际版苹果地图（需配合科学上网），但会失去高德版苹果地图；**修改前请务必先完成 iPhone 与 Mac 的配对**，否则 iPhone 镜像可能因代码不匹配而无法连接。
 - `featureavailabilityctl` 的覆写 key 与参数可能因 macOS 版本（尤其 Golden Gate Beta 系列）不同而变化，遇到问题请到仓库提交 issue。
 - 本工具不会收集或上传任何数据。
 
