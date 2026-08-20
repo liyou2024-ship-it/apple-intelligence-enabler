@@ -70,6 +70,9 @@ load_strings() {
     S_CONF_OK="1. Enabled successfully"
     S_CONF_FAIL="2. Failed to enable"
     S_END="Script finished. If you have any issues, please submit an issue at:"
+    S_RISK="This operation carries some risk. Are you willing to accept it?"
+    S_RISK_YES="Yes - I accept the risk and continue"
+    S_RISK_NO="No - Exit the tool"
   else
     S_WELCOME="欢迎使用，请选择你的语言："
     S_MOVE_HINT="使用 ↑/↓ 选择，回车确认"
@@ -101,6 +104,9 @@ load_strings() {
     S_CONF_OK="1. 开启成功"
     S_CONF_FAIL="2. 开启失败"
     S_END="脚本运行结束。若您在使用过程中有任何问题，请登录以下 Github 仓库提交 issue："
+    S_RISK="操作有一定风险，你是否愿意承担风险？"
+    S_RISK_YES="是 (Yes) - 我愿意承担风险并继续"
+    S_RISK_NO="否 (No) - 退出工具"
   fi
 }
 
@@ -248,6 +254,15 @@ main() {
   act=$(menu "$S_CHOOSE_ACTION" "$S_ACT_ENABLE" "$S_ACT_UNINSTALL" "$S_ACT_CLOSE")
 
   if [ "$act" -eq 2 ]; then
+    end_screen
+    exit 0
+  fi
+
+  # 风险提示（开启与卸载均会修改系统，需用户确认承担风险）
+  local risk
+  risk=$(menu "$S_RISK" "$S_RISK_YES" "$S_RISK_NO")
+  if [ "$risk" -ne 0 ]; then
+    echo "已取消操作（用户不愿承担风险）。"
     end_screen
     exit 0
   fi
