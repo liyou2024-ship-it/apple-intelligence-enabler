@@ -48,6 +48,8 @@ load_strings() {
     S_CHOOSE_VERSION="Which version of Apple Intelligence do you want to enable?"
     S_VER_SIRI2="Siri 2.0 (macOS 15 Sequoia series)"
     S_VER_SIRI3="Siri 3.0 (macOS 27 Golden Gate series)"
+    S_VER_ADVICE2="Tip for Siri 2.0: prefer Method 1 (US-region emulation). It needs no SIP disable and has the highest success rate on macOS 15 Sequoia."
+    S_VER_ADVICE3="Tip for Siri 3.0 (macOS 27 Golden Gate): Method 1 has a LOW success rate here. We recommend trying Method 2 (force-enable) directly, which REQUIRES SIP disabled and a writable system volume mount."
     S_CHOOSE_METHOD="Please choose the enable method:"
     S_METHOD1="Method 1: US-model device code (works on all models)"
     S_METHOD2="Method 2: Force-enable code (try if Method 1 fails)"
@@ -92,6 +94,8 @@ load_strings() {
     S_CHOOSE_VERSION="你要开启哪版的 Apple 智能？"
     S_VER_SIRI2="Siri 2.0（macOS 15 Sequoia 系列）"
     S_VER_SIRI3="Siri 3.0（macOS 27 Golden Gate 系列）"
+    S_VER_ADVICE2="Siri 2.0 提示：建议优先使用【方法一 仿美版机型】，无需关闭 SIP，在 macOS 15 Sequoia 上成功率最高。"
+    S_VER_ADVICE3="Siri 3.0（macOS 27 Golden Gate）提示：【方法一】在此版本成功率较低，建议直接尝试【方法二 强制开启】，该方法需关闭 SIP 并以可写方式挂载系统卷。"
     S_CHOOSE_METHOD="请选择开启方式："
     S_METHOD1="方法一：仿美版机型代码（全版本机型都可）"
     S_METHOD2="方法二：强制开启相关代码（若方法一失败，可尝试方法二）"
@@ -385,6 +389,14 @@ main() {
   # act == 0: 开启
   local ver
   ver=$(menu "$S_CHOOSE_VERSION" "$S_VER_SIRI2" "$S_VER_SIRI3")
+
+  # 按版本给出针对性建议（Siri 2.0 优先方法一；Siri 3.0 优先方法二）
+  case "$ver" in
+    0) echo ""; echo "  > $S_VER_ADVICE2" ;;
+    1) echo ""; echo "  > $S_VER_ADVICE3" ;;
+  esac
+  echo ""
+
   local method
   method=$(menu "$S_CHOOSE_METHOD" "$S_METHOD1" "$S_METHOD2")
 

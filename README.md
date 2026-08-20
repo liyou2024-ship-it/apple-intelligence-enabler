@@ -36,6 +36,7 @@ chmod +x apple_intelligence_enabler.sh
 
 - 本工具基于社区公开方法，仅供在你**自己的**设备上使用。
 - **方法二需要关闭 SIP（系统完整性保护）** 并以可读写方式挂载系统卷，存在安全风险，请自行评估。
+- **按版本选方法**：Siri 2.0（macOS 15 Sequoia）建议优先用方法一（仿美版机型，无需关 SIP，成功率最高）；Siri 3.0（macOS 27 Golden Gate）方法一成功率较低，建议直接尝试方法二（需关 SIP）。
 - 关闭 SIP、修改系统文件可能违反 Apple 软件许可协议。
 - Apple 智能本身还需要：Apple Silicon 芯片、macOS 15.1+、Siri 语言与系统语言设为 English (US)、以及外区 Apple 账户。
 - 锁定国家代码为美国会启用内置 ChatGPT、Apple News、国际版苹果地图（需配合科学上网），但会失去高德版苹果地图；**修改前请务必先完成 iPhone 与 Mac 的配对**，否则 iPhone 镜像可能因代码不匹配而无法连接。
