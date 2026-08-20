@@ -34,7 +34,7 @@ sudo ./apple_intelligence_enabler.sh
 - **方法二需要关闭 SIP（系统完整性保护）** 并以可读写方式挂载系统卷，存在安全风险，请自行评估。
 - 关闭 SIP、修改系统文件可能违反 Apple 软件许可协议。
 - Apple 智能本身还需要：Apple Silicon 芯片、macOS 15.1+、Siri 语言与系统语言设为 English (US)、以及外区 Apple 账户。
-- `featureavailabilityctl` 的覆写 key 与参数可能因 macOS 版本（尤其 Tahoe Beta 系列）不同而变化，遇到问题请到仓库提交 issue。
+- `featureavailabilityctl` 的覆写 key 与参数可能因 macOS 版本（尤其 Golden Gate Beta 系列）不同而变化，遇到问题请到仓库提交 issue。
 - 本工具不会收集或上传任何数据。
 
 ## 问题反馈
