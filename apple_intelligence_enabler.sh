@@ -33,6 +33,37 @@ fi
 # runp: 已是 root 时直接执行，否则加 sudo（首次会提示输入密码，之后有缓存）
 runp() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi; }
 
+# 确定「真实用户」：脚本一般作为普通用户运行、靠 runp 逐条 sudo；
+# 若整脚本被 sudo 拉起，则用 SUDO_UID/SUDO_USER 找到真正要修改的登录用户。
+if [ -n "${SUDO_UID:-}" ]; then
+  RU_UID="$SUDO_UID"
+  RU_HOME="$(eval echo ~"${SUDO_USER:-$(id -un)}")"
+else
+  RU_UID="$(id -u)"
+  RU_HOME="$HOME"
+fi
+
+# set_user_env / unset_user_env：把 eligibility 环境变量写进「登录用户」的 launchd 上下文，
+# 而不是 root 的上下文。旧版错误地用 sudo 写入 root，导致 GUI 会话读不到（开启失败的根因之一）。
+set_user_env() {
+  if [ "$(id -u)" -eq 0 ]; then
+    /bin/launchctl asuser "$RU_UID" setenv OS_ELIGIBILITY_FORCE_OPT_IN 1
+  else
+    /bin/launchctl setenv OS_ELIGIBILITY_FORCE_OPT_IN 1
+  fi
+}
+unset_user_env() {
+  if [ "$(id -u)" -eq 0 ]; then
+    /bin/launchctl asuser "$RU_UID" unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
+  else
+    /bin/launchctl unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
+  fi
+}
+# 写「登录用户」级全局偏好（AppleLanguages 等）。用户级会覆盖系统级，才能对用户的 App 真正生效。
+write_user_global() {
+  /usr/bin/defaults write "$RU_HOME/Library/Preferences/.GlobalPreferences.plist" "$@"
+}
+
 # 语言: zh / en
 LANG_CODE="zh"
 
@@ -44,12 +75,12 @@ load_strings() {
     S_CHOOSE_ACTION="Please choose an operation:"
     S_ACT_ENABLE="1. Enable Apple Intelligence"
     S_ACT_UNINSTALL="2. Uninstall Apple Intelligence"
-    S_ACT_CLOSE="3. Close tool"
+    S_ACT_CLOSE="4. Close tool"
     S_CHOOSE_VERSION="Which version of Apple Intelligence do you want to enable?"
     S_VER_SIRI2="Siri 2.0 (macOS 15 Sequoia series)"
     S_VER_SIRI3="Siri 3.0 (macOS 27 Golden Gate series)"
     S_VER_ADVICE2="Tip for Siri 2.0: prefer Method 1 (US-region emulation). It needs no SIP disable and has the highest success rate on macOS 15 Sequoia."
-    S_VER_ADVICE3="Tip for Siri 3.0 (macOS 27 Golden Gate): Method 1 has a LOW success rate here. We recommend trying Method 2 (force-enable) directly, which REQUIRES SIP disabled and a writable system volume mount."
+    S_VER_ADVICE3="Tip for Siri 3.0 (macOS 27 Golden Gate): featureavailabilityctl has been removed in this version, so Method 2 (force-enable) is actually unavailable. Only Method 1 can be tried (low success rate; requires logout/reboot to take effect)."
     S_CHOOSE_METHOD="Please choose the enable method:"
     S_METHOD1="Method 1: US-model device code (works on all models)"
     S_METHOD2="Method 2: Force-enable code (try if Method 1 fails)"
@@ -69,7 +100,7 @@ load_strings() {
     S_UNINSTALLING="Reverting Apple Intelligence modifications..."
     S_VERIFYING="Auto-detecting whether Apple Intelligence is actually enabled..."
     S_VERIFY_OK="Apple Intelligence detected as ENABLED (relevant feature flags are on). If it still doesn't show in System Settings, reboot or re-login and check again."
-    S_VERIFY_FAIL="Could not confirm Apple Intelligence is enabled. The current method may not apply to your macOS version, or prerequisites (Apple Silicon / English language / non-China Apple Account) may still be unmet. Try Method 2 or open an issue on the repo."
+    S_VERIFY_FAIL="Could not confirm Apple Intelligence is enabled. The method may not apply to your macOS version (e.g. macOS 27 removed featureavailabilityctl, making Method 2 unavailable), or prerequisites (Apple Silicon / English language / non-China Apple Account) may still be unmet. Try Method 1 again, or open an issue on the repo."
     S_END="Script finished. If you have any issues, please submit an issue at:"
     S_RISK="This operation carries some risk. Are you willing to accept it?"
     S_RISK_YES="Yes - I accept the risk and continue"
@@ -84,7 +115,7 @@ load_strings() {
     S_REGION_APPLYING="Locking country code to United States..."
     S_REGION_DONE="Done: country code locked to United States."
     S_REGION_SKIP="Skipped: country code not changed."
-    S_ACT_CLEANUP="4. China-version switch cleanup (clear forced-enable residue)"
+    S_ACT_CLEANUP="3. China-version switch cleanup (clear forced-enable residue)"
     S_CLEAN_INTRO="China-version switch cleanup: this clears the residue left by this tool's forced-enable, so you can switch to the official China-version Apple Intelligence."
     S_CLEAN_LANG_ASK="Reset system language to Simplified Chinese (recommended for China-version AI)?"
     S_CLEAN_LANG_YES="Yes - Set to Simplified Chinese"
@@ -102,12 +133,12 @@ load_strings() {
     S_CHOOSE_ACTION="请选择要完成的操作："
     S_ACT_ENABLE="1. 开启 Apple 智能"
     S_ACT_UNINSTALL="2. 卸载 Apple 智能"
-    S_ACT_CLOSE="3. 关闭工具"
+    S_ACT_CLOSE="4. 关闭工具"
     S_CHOOSE_VERSION="你要开启哪版的 Apple 智能？"
     S_VER_SIRI2="Siri 2.0（macOS 15 Sequoia 系列）"
     S_VER_SIRI3="Siri 3.0（macOS 27 Golden Gate 系列）"
     S_VER_ADVICE2="Siri 2.0 提示：建议优先使用【方法一 仿美版机型】，无需关闭 SIP，在 macOS 15 Sequoia 上成功率最高。"
-    S_VER_ADVICE3="Siri 3.0（macOS 27 Golden Gate）提示：【方法一】在此版本成功率较低，建议直接尝试【方法二 强制开启】，该方法需关闭 SIP 并以可写方式挂载系统卷。"
+    S_VER_ADVICE3="Siri 3.0（macOS 27 Golden Gate）提示：本版本已移除 featureavailabilityctl，【方法二 强制开启】实际不可用；当前只能试【方法一】（成功率较低，且需注销/重启后生效）。"
     S_CHOOSE_METHOD="请选择开启方式："
     S_METHOD1="方法一：仿美版机型代码（全版本机型都可）"
     S_METHOD2="方法二：强制开启相关代码（若方法一失败，可尝试方法二）"
@@ -127,7 +158,7 @@ load_strings() {
     S_UNINSTALLING="正在卸载 Apple 智能相关修改..."
     S_VERIFYING="正在自动检测 Apple 智能是否已真正启用..."
     S_VERIFY_OK="检测到 Apple 智能已启用（相关特性标志已开启）。如系统设置中仍未出现，请重启或重新登录后再确认。"
-    S_VERIFY_FAIL="未能确认 Apple 智能已启用。可能当前方法不适用于您的系统版本，或仍需满足 Apple 芯片 / 英文语言 / 外区账户等条件。可尝试方法二或到仓库提交 issue。"
+    S_VERIFY_FAIL="未能确认 Apple 智能已启用。可能当前方法不适用于您的系统版本（如 macOS 27 已移除 featureavailabilityctl，方法二不可用），或仍需满足 Apple 芯片 / 英文语言 / 外区账户等条件。可改用方法一重试，或到仓库提交 issue。"
     S_END="脚本运行结束。若您在使用过程中有任何问题，请登录以下 Github 仓库提交 issue："
     S_RISK="操作有一定风险，你是否愿意承担风险？"
     S_RISK_YES="是 (Yes) - 我愿意承担风险并继续"
@@ -142,7 +173,7 @@ load_strings() {
     S_REGION_APPLYING="正在将国家代码锁定为美国..."
     S_REGION_DONE="已完成：国家代码已锁定为美国。"
     S_REGION_SKIP="已跳过：未修改国家代码。"
-    S_ACT_CLEANUP="4. 国行版切换清理（清除强开残留）"
+    S_ACT_CLEANUP="3. 国行版切换清理（清除强开残留）"
     S_CLEAN_INTRO="国行版切换清理：本步骤将清除本工具强制开启 Apple 智能所写入的残留配置，便于您切换到官方国行版 Apple 智能。"
     S_CLEAN_LANG_ASK="是否将系统语言重置为简体中文（便于使用国行 AI）？"
     S_CLEAN_LANG_YES="是 (Yes) - 设为简体中文"
@@ -212,6 +243,12 @@ run_detection() {
   else
     echo "  [!!] $S_DET_SIP - $S_DET_SIP_WARN"
   fi
+  local fac; fac=$(find_fac)
+  if [ -n "$fac" ]; then
+    echo "  [OK] featureavailabilityctl 可用（方法二可用）"
+  else
+    echo "  [!!] featureavailabilityctl 不存在 - 方法二（强制开启）在本系统不可用"
+  fi
   local lang; lang=$(/usr/bin/defaults read /Library/Preferences/.GlobalPreferences.plist AppleLanguages 2>/dev/null | head -1)
   if echo "$lang" | grep -qi "en"; then
     echo "  [OK] $S_DET_SYSLANG"
@@ -238,14 +275,19 @@ find_fac() {
 
 # ---------- 方法核心 ----------
 apply_common() {
-  # 仿美版机型 / 区域与语言（以下均为需管理员权限的操作，按需 sudo）
+  # 仿美版机型 / 区域与语言
+  # 系统级（需管理员权限，按需 sudo）
   runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
   runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
-  runp /bin/launchctl setenv OS_ELIGIBILITY_FORCE_OPT_IN 1
   runp /usr/bin/defaults write /Library/Preferences/com.apple.assistant.plist "Assistant Environment" -string "Production" 2>/dev/null
-  runp /usr/bin/killall -9 assistant_service 2>/dev/null
-  runp /usr/bin/killall -9 imagent 2>/dev/null
-  runp /usr/bin/killall -9 searchd 2>/dev/null
+  # 用户级语言偏好：用户级会覆盖系统级，必须写到登录用户域才能真正生效（旧版只写系统级，被覆盖）
+  write_user_global AppleLanguages -array "en-US" "zh-Hans"
+  # 环境变量写进「登录用户」的 launchd 上下文（关键修复：旧版误写 root 上下文）
+  set_user_env
+  # 重启相关用户进程（无需 sudo，只杀自己的进程）
+  /usr/bin/killall -9 assistant_service 2>/dev/null
+  /usr/bin/killall -9 imagent 2>/dev/null
+  /usr/bin/killall -9 searchd 2>/dev/null
 }
 
 enable_method1() {
@@ -255,15 +297,17 @@ enable_method1() {
 
 enable_method2() {
   echo "$S_APPLY_M2"
+  local fac; fac=$(find_fac)
+  if [ -z "$fac" ]; then
+    echo "  \033[1;31m[!!] 致命：本系统找不到 featureavailabilityctl 二进制。\033[0m" >/dev/tty
+    echo "  \033[1;31m[!!] 方法二的「强制覆写」依赖它，而当前 macOS 版本（如 27 Golden Gate）已将其移除。\033[0m" >/dev/tty
+    echo "  \033[1;31m[!!] 因此方法二在本机完全无法生效，已中止。请改用【方法一】或等待适配新系统的方案。\033[0m" >/dev/tty
+    return 1
+  fi
   # 需要 SIP 关闭 + 挂载系统卷为可写
   runp /sbin/mount -uw / 2>/dev/null
-  local fac; fac=$(find_fac)
-  if [ -n "$fac" ]; then
-    runp "$fac" --macos Override -s '{"Siri.Suggestions": {"Status": "Beta"}}' 2>/dev/null
-    runp "$fac" --macos Override -s '{"Siri.GenuineSiri-intelligence": {"Status": "Beta"}}' 2>/dev/null
-  else
-    echo "  (featureavailabilityctl 不可用，已跳过强制覆写)"
-  fi
+  runp "$fac" --macos Override -s '{"Siri.Suggestions": {"Status": "Beta"}}' 2>/dev/null
+  runp "$fac" --macos Override -s '{"Siri.GenuineSiri-intelligence": {"Status": "Beta"}}' 2>/dev/null
   apply_common
 }
 
@@ -271,14 +315,15 @@ uninstall_intelligence() {
   echo "$S_UNINSTALLING"
   runp /usr/bin/defaults delete /Library/Preferences/.GlobalPreferences.plist CountryCode 2>/dev/null
   runp /usr/bin/defaults delete /Library/Preferences/com.apple.assistant.plist "Assistant Environment" 2>/dev/null
-  runp /bin/launchctl unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
+  unset_user_env
+  write_user_global AppleLanguages -array "zh-Hans"
   local fac; fac=$(find_fac)
   if [ -n "$fac" ]; then
     runp "$fac" --macos Override -d '{"Siri.Suggestions": {}}' 2>/dev/null
     runp "$fac" --macos Override -d '{"Siri.GenuineSiri-intelligence": {}}' 2>/dev/null
   fi
-  runp /usr/bin/killall -9 assistant_service 2>/dev/null
-  runp /usr/bin/killall -9 imagent 2>/dev/null
+  /usr/bin/killall -9 assistant_service 2>/dev/null
+  /usr/bin/killall -9 imagent 2>/dev/null
 }
 
 # ---------- 国行版切换清理（清除强制开启残留）----------
@@ -324,11 +369,12 @@ china_cleanup_step() {
   # 4. 清除工具写入的 plist 与环境变量（含方法一与国家代码锁定）
   runp /usr/bin/defaults delete /Library/Preferences/.GlobalPreferences.plist CountryCode 2>/dev/null
   runp /usr/bin/defaults delete /Library/Preferences/com.apple.assistant.plist "Assistant Environment" 2>/dev/null
-  runp /bin/launchctl unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
+  unset_user_env
 
   # 5. 按用户选择重置系统语言
   if [ "$lang_sel" -eq 0 ]; then
     runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "zh-Hans"
+    write_user_global AppleLanguages -array "zh-Hans"
     echo "$S_CLEAN_LANG_DONE" >/dev/tty
   fi
 
@@ -384,6 +430,7 @@ region_lock_step() {
     echo "$S_REGION_APPLYING" >/dev/tty
     runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist CountryCode -string "US"
     runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "en-US" "zh-Hans"
+    write_user_global AppleLanguages -array "en-US" "zh-Hans"
     echo "$S_REGION_DONE" >/dev/tty
   else
     echo "$S_REGION_SKIP" >/dev/tty
