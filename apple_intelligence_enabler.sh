@@ -84,6 +84,18 @@ load_strings() {
     S_REGION_APPLYING="Locking country code to United States..."
     S_REGION_DONE="Done: country code locked to United States."
     S_REGION_SKIP="Skipped: country code not changed."
+    S_ACT_CLEANUP="4. China-version switch cleanup (clear forced-enable residue)"
+    S_CLEAN_INTRO="China-version switch cleanup: this clears the residue left by this tool's forced-enable, so you can switch to the official China-version Apple Intelligence."
+    S_CLEAN_LANG_ASK="Reset system language to Simplified Chinese (recommended for China-version AI)?"
+    S_CLEAN_LANG_YES="Yes - Set to Simplified Chinese"
+    S_CLEAN_LANG_NO="No - Keep current"
+    S_CLEAN_LANG_DONE="Done: system language preference set to Simplified Chinese."
+    S_CLEAN_SIP_TIP="IMPORTANT: if you used Method 2, SIP is currently DISABLED. To switch to the official China-version safely:
+  1) Reboot into Recovery (Apple Silicon: shut down, hold power until 'Loading startup options', then Options > Utilities > Terminal)
+  2) Run: csrutil enable
+  3) Restart, set your PRIMARY Apple Account to China mainland region, then install the official September update to enable China-version AI natively.
+  (A normal reboot also restores the sealed system volume, undoing the 'mount -uw /' writable mount.)"
+    S_CLEAN_DONE_SUMMARY="Cleanup complete. Next: set your primary Apple Account to China mainland region and install the official update to enable China-version AI natively."
   else
     S_WELCOME="欢迎使用，请选择你的语言："
     S_MOVE_HINT="使用 ↑/↓ 选择，回车确认"
@@ -130,6 +142,18 @@ load_strings() {
     S_REGION_APPLYING="正在将国家代码锁定为美国..."
     S_REGION_DONE="已完成：国家代码已锁定为美国。"
     S_REGION_SKIP="已跳过：未修改国家代码。"
+    S_ACT_CLEANUP="4. 国行版切换清理（清除强开残留）"
+    S_CLEAN_INTRO="国行版切换清理：本步骤将清除本工具强制开启 Apple 智能所写入的残留配置，便于您切换到官方国行版 Apple 智能。"
+    S_CLEAN_LANG_ASK="是否将系统语言重置为简体中文（便于使用国行 AI）？"
+    S_CLEAN_LANG_YES="是 (Yes) - 设为简体中文"
+    S_CLEAN_LANG_NO="否 (No) - 保持当前"
+    S_CLEAN_LANG_DONE="已完成：系统语言偏好已设为简体中文。"
+    S_CLEAN_SIP_TIP="重点提醒：若您曾使用【方法二】，当前 SIP 处于关闭状态。要安全切换到官方国行版，请：
+  1) 重启进入恢复模式（Apple 芯片：关机后长按电源键直到出现“正在载入启动选项”，进入“选项”>“实用工具”>“终端”）
+  2) 执行：csrutil enable
+  3) 重启后在系统设置中将主账户切换为中国大陆 Apple 账户，再安装 9 月官方更新即可原生启用国行版。
+  （正常重启也会恢复系统卷密封状态，撤销“mount -uw /”的可写挂载。）"
+    S_CLEAN_DONE_SUMMARY="清理完成。下一步：将主账户切换为中国大陆 Apple 账户，并安装官方更新以原生启用国行版 Apple 智能。"
   fi
 }
 
@@ -257,6 +281,68 @@ uninstall_intelligence() {
   runp /usr/bin/killall -9 imagent 2>/dev/null
 }
 
+# ---------- 国行版切换清理（清除强制开启残留）----------
+china_cleanup_step() {
+  # 1. 先询问是否重置系统语言为简体中文（交互菜单）
+  local lang_sel
+  lang_sel=$(menu "$S_CLEAN_LANG_ASK" "$S_CLEAN_LANG_YES" "$S_CLEAN_LANG_NO")
+
+  echo "$S_CLEAN_INTRO" >/dev/tty
+  echo "------------------------------------------------" >/dev/tty
+
+  # 2. 备份当前相关配置（便于回退）
+  local bak="$HOME/apple_intelligence_enabler_backup_$(date +%Y%m%d_%H%M%S).txt"
+  {
+    echo "# Backup of Apple Intelligence enabler modifications"
+    echo "Date: $(date)"
+    echo "--- CountryCode ---"
+    runp /usr/bin/defaults read /Library/Preferences/.GlobalPreferences.plist CountryCode 2>/dev/null || echo "(none)"
+    echo "--- AppleLanguages ---"
+    runp /usr/bin/defaults read /Library/Preferences/.GlobalPreferences.plist AppleLanguages 2>/dev/null || echo "(none)"
+    echo "--- com.apple.assistant ---"
+    runp /usr/bin/defaults read /Library/Preferences/com.apple.assistant.plist 2>/dev/null || echo "(none)"
+    echo "--- featureavailabilityctl overrides ---"
+    local fac0; fac0=$(find_fac)
+    if [ -n "$fac0" ]; then
+      runp "$fac0" --macos Override -l 2>/dev/null || echo "(none)"
+    else
+      echo "(featureavailabilityctl unavailable)"
+    fi
+  } > "$bak" 2>&1
+  echo "已备份当前相关配置到：$bak" >/dev/tty
+
+  # 3. 清除强制开启的覆写 flag（方法二）
+  local fac; fac=$(find_fac)
+  if [ -n "$fac" ]; then
+    runp "$fac" --macos Override -d '{"Siri.Suggestions": {}}' 2>/dev/null
+    runp "$fac" --macos Override -d '{"Siri.GenuineSiri-intelligence": {}}' 2>/dev/null
+    echo "已清除 featureavailabilityctl 强制覆写。" >/dev/tty
+  else
+    echo "(featureavailabilityctl 不可用，跳过覆写清除)" >/dev/tty
+  fi
+
+  # 4. 清除工具写入的 plist 与环境变量（含方法一与国家代码锁定）
+  runp /usr/bin/defaults delete /Library/Preferences/.GlobalPreferences.plist CountryCode 2>/dev/null
+  runp /usr/bin/defaults delete /Library/Preferences/com.apple.assistant.plist "Assistant Environment" 2>/dev/null
+  runp /bin/launchctl unsetenv OS_ELIGIBILITY_FORCE_OPT_IN 2>/dev/null
+
+  # 5. 按用户选择重置系统语言
+  if [ "$lang_sel" -eq 0 ]; then
+    runp /usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist AppleLanguages -array "zh-Hans"
+    echo "$S_CLEAN_LANG_DONE" >/dev/tty
+  fi
+
+  # 6. 重启相关进程
+  runp /usr/bin/killall -9 assistant_service 2>/dev/null
+  runp /usr/bin/killall -9 imagent 2>/dev/null
+
+  echo "------------------------------------------------" >/dev/tty
+  echo "$S_CLEAN_SIP_TIP" >/dev/tty
+  echo "------------------------------------------------" >/dev/tty
+  echo "$S_CLEAN_DONE_SUMMARY" >/dev/tty
+  sleep 3
+}
+
 # ---------- 可选：锁定国家代码为美国 ----------
 region_lock_step() {
   local opts=("$S_REGION_YES" "$S_REGION_NO")
@@ -364,14 +450,14 @@ main() {
   load_strings
 
   local act
-  act=$(menu "$S_CHOOSE_ACTION" "$S_ACT_ENABLE" "$S_ACT_UNINSTALL" "$S_ACT_CLOSE")
+  act=$(menu "$S_CHOOSE_ACTION" "$S_ACT_ENABLE" "$S_ACT_UNINSTALL" "$S_ACT_CLEANUP" "$S_ACT_CLOSE")
 
-  if [ "$act" -eq 2 ]; then
+  if [ "$act" -eq 3 ]; then
     end_screen
     exit 0
   fi
 
-  # 风险提示（开启与卸载均会修改系统，需用户确认承担风险）
+  # 风险提示（开启 / 卸载 / 国行版切换清理 均会修改系统，需用户确认承担风险）
   local risk
   risk=$(menu "$S_RISK" "$S_RISK_YES" "$S_RISK_NO")
   if [ "$risk" -ne 0 ]; then
@@ -382,6 +468,12 @@ main() {
 
   if [ "$act" -eq 1 ]; then
     uninstall_intelligence
+    end_screen
+    exit 0
+  fi
+
+  if [ "$act" -eq 2 ]; then
+    china_cleanup_step
     end_screen
     exit 0
   fi
